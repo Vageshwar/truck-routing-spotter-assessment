@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+db.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Env and OS
+.env
+.env.local
+.DS_Store
