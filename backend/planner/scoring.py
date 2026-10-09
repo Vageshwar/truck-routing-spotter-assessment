@@ -13,9 +13,8 @@ Routes are ranked with the order from the brief, plus No Travel miles first:
     3. lowest average risk (mile weighted, Low=0 ... No Travel=4)
     4. shortest travel time
 
-Values within a criterion's tolerance count as a tie and fall through to the
-next criterion. The tolerances absorb noise from checkpoint spacing, so a
-route that is 2 Severe miles "worse" but 3 hours faster can still win.
+The order is strict, as the brief gives it: one fewer Severe mile beats any
+amount of saved time. Travel time only decides when everything above it ties.
 """
 
 from collections.abc import Callable, Sequence
@@ -103,19 +102,20 @@ def summarize_route(
 class Criterion:
     name: str
     value: Callable[[RouteSummary], float]
-    tolerance: float
 
 
 CRITERIA = (
-    Criterion("No Travel miles", lambda r: r.no_travel_mi, tolerance=0.0),
-    Criterion("Severe miles", lambda r: r.severe_mi, tolerance=5.0),
-    Criterion("High miles", lambda r: r.high_mi, tolerance=5.0),
-    Criterion("average risk", lambda r: r.avg_risk, tolerance=0.1),
-    Criterion("travel time (s)", lambda r: r.duration_s, tolerance=0.0),
+    Criterion("No Travel miles", lambda r: r.no_travel_mi),
+    Criterion("Severe miles", lambda r: r.severe_mi),
+    Criterion("High miles", lambda r: r.high_mi),
+    Criterion("average risk", lambda r: r.avg_risk),
+    Criterion("travel time (s)", lambda r: r.duration_s),
 )
 
-# Guards against float noise when a tolerance is 0.
-_EPSILON = 1e-9
+
+def _sort_key(route: RouteSummary) -> tuple[float, ...]:
+    # Rounding keeps float noise (e.g. 12.500000001 vs 12.5) from deciding.
+    return tuple(round(c.value(route), 6) for c in CRITERIA)
 
 
 @dataclass(frozen=True)
@@ -135,60 +135,30 @@ class Recommendation:
     all_routes_no_travel: bool
 
 
-def _pick_best(routes: Sequence[RouteSummary]) -> tuple[RouteSummary, list[Elimination]]:
-    """Filter routes criterion by criterion until one is left.
-
-    At each step, keep only routes within tolerance of the best value among
-    the routes still in the running. Filtering (instead of sorting with a
-    fuzzy compare) keeps the result consistent: a fuzzy "equal" is not
-    transitive, so a sort could give different answers for the same input.
-    If routes are still tied at the end, the earliest one in the input wins.
-    """
-    remaining = list(routes)
-    eliminated = []
-    for criterion in CRITERIA:
-        best = min(criterion.value(r) for r in remaining)
-        limit = best + criterion.tolerance + _EPSILON
-        kept = []
-        for route in remaining:
-            value = criterion.value(route)
-            if value <= limit:
-                kept.append(route)
-            else:
-                eliminated.append(Elimination(route.route_id, criterion.name, value, best))
-        remaining = kept
-        if len(remaining) == 1:
-            break
-    return remaining[0], eliminated
-
-
 def recommend(routes: Sequence[RouteSummary]) -> Recommendation:
     if not routes:
         raise ValueError("no routes to recommend from")
 
-    winner, eliminations = _pick_best(routes)
+    # sorted() is stable, so routes that tie on every criterion keep input order.
+    ranked = sorted(routes, key=_sort_key)
+    winner = ranked[0]
+    winner_key = _sort_key(winner)
 
-    # Rank the rest by running the same selection on what is left.
-    ranking = [winner.route_id]
-    remaining = [r for r in routes if r is not winner]
-    while remaining:
-        best, _ = _pick_best(remaining)
-        ranking.append(best.route_id)
-        remaining = [r for r in remaining if r is not best]
-
-    # A route that was still tied with the winner when the criteria ran out
-    # never gets an elimination record, so note that it lost on input order.
-    explained = {e.route_id for e in eliminations}
-    for route in routes:
-        if route is not winner and route.route_id not in explained:
+    eliminations = []
+    for route in ranked[1:]:
+        key = _sort_key(route)
+        # The first criterion where a route differs from the winner is where it lost.
+        for criterion, value, best in zip(CRITERIA, key, winner_key, strict=True):
+            if value != best:
+                eliminations.append(Elimination(route.route_id, criterion.name, value, best))
+                break
+        else:
             eliminations.append(
-                Elimination(
-                    route.route_id, "tie (input order)", route.duration_s, winner.duration_s
-                )
+                Elimination(route.route_id, "tie (input order)", key[-1], winner_key[-1])
             )
 
     return Recommendation(
-        ranking=ranking,
+        ranking=[r.route_id for r in ranked],
         eliminations=eliminations,
         all_routes_no_travel=all(r.has_no_travel for r in routes),
     )

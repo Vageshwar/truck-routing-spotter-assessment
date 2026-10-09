@@ -95,11 +95,17 @@ class TestRecommend:
         assert result.ranking == ["b", "a"]
         assert result.eliminations[0].criterion == "travel time (s)"
 
-    def test_small_differences_fall_through_to_the_next_criterion(self):
-        # 3 Severe miles and 0.05 avg risk are inside the tolerances,
-        # so the much faster route wins
-        a = make_route("a", severe=3, avg=1.05, hours=8)
-        b = make_route("b", severe=0, avg=1.00, hours=11)
+    def test_strict_order_even_small_differences_count(self):
+        # 3 extra Severe miles lose, even though that route is 3 hours faster
+        a = make_route("a", severe=3, hours=8)
+        b = make_route("b", severe=0, hours=11)
+        result = recommend([a, b])
+        assert result.ranking == ["b", "a"]
+        assert result.eliminations[0].criterion == "Severe miles"
+
+    def test_float_noise_is_not_a_difference(self):
+        a = make_route("a", high=12.500000001, hours=8)
+        b = make_route("b", high=12.5, hours=11)
         assert recommend([a, b]).ranking == ["a", "b"]
 
     def test_three_routes_full_ranking_and_reasons(self):
