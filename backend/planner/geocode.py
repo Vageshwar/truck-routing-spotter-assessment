@@ -32,7 +32,7 @@ def _search(query: str, limit: int) -> list[dict]:
     try:
         response = httpx.get(
             PHOTON_URL,
-            params={"q": query, "limit": limit, "lang": "en", "bbox": US_BBOX},
+            params={"q": query, "limit": limit * 2, "lang": "en", "bbox": US_BBOX},
             headers={"User-Agent": USER_AGENT},
             timeout=TIMEOUT_S,
         )
@@ -40,15 +40,24 @@ def _search(query: str, limit: int) -> list[dict]:
         data = response.json()
     except (httpx.HTTPError, ValueError) as exc:
         raise GeocodeError(f"Place search failed: {exc}") from exc
-    return parse_response(data)
+    # ask for extra because non-US places are dropped
+    return parse_response(data)[:limit]
 
 
 def parse_response(data: dict) -> list[dict]:
     results = []
+    seen = set()
     for feature in data.get("features", []):
         props = feature.get("properties", {})
+        # the bounding box also covers parts of Canada and Mexico
+        if props.get("countrycode") != "US":
+            continue
+        name = label(props)
+        if name in seen:
+            continue
+        seen.add(name)
         lon, lat = feature["geometry"]["coordinates"]
-        results.append({"label": label(props), "lat": lat, "lon": lon})
+        results.append({"label": name, "lat": lat, "lon": lon})
     return results
 
 

@@ -17,6 +17,23 @@ def test_parses_real_photon_response():
     assert results[0]["label"] == "1600 South Main Street, Duncanville, Texas"
 
 
+def test_keeps_only_us_places_and_drops_repeats():
+    def feature(name, state, country):
+        return {
+            "geometry": {"coordinates": [-101.8, 35.2]},
+            "properties": {"name": name, "state": state, "countrycode": country},
+        }
+
+    data = {
+        "features": [
+            feature("Amarillo", "Texas", "US"),
+            feature("Amarillo", "Chihuahua", "MX"),
+            feature("Amarillo", "Texas", "US"),
+        ]
+    }
+    assert [r["label"] for r in parse_response(data)] == ["Amarillo, Texas"]
+
+
 def test_label_skips_repeats_and_blanks():
     assert label({"name": "Denver", "city": "Denver", "state": "Colorado"}) == "Denver, Colorado"
     assert (
