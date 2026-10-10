@@ -9,8 +9,8 @@ This is my submission for the Spotter Full Stack Developer assessment.
 Work in progress. I'm building it in this order:
 
 - [x] Risk rules, load rules and route ranking, with tests
-- [ ] Routing (3 options), checkpoints along each route and ETAs
-- [ ] Weather at each checkpoint and the `/api/plan` endpoint
+- [x] Routing (3 options), checkpoints along each route and ETAs
+- [x] Weather at each checkpoint and the `/api/plan` endpoint
 - [ ] Frontend: form, route cards, map with routes and checkpoints
 - [ ] Weather heatmap with the 0 to 48 hour slider
 - [ ] Deploy (Vercel + Render) and the Loom walkthrough
@@ -99,7 +99,8 @@ Before writing any code I went through the brief question by question and wrote 
 ### Sampling and timing
 
 - **"Every 10 / 25 / 50 miles"** can mean either a setting the user picks or a spacing that grows with trip length. I support both: the default depends on trip length (under 300 mi uses 10, up to 1,000 mi uses 25, longer uses 50) and the user can change it.
-- **Weather at arrival time.** Each checkpoint uses the forecast for the hour the truck gets there, not the departure hour. A 14:37 ETA uses the 14:00 to 15:00 forecast hour, which matches the "in/hr" units.
+- **Weather at arrival time.** Each checkpoint uses the forecast for the hour the truck gets there, not the departure hour. A 14:37 ETA uses the 14:00 to 15:00 forecast hour, which matches the "in/hr" units. Open-Meteo stamps rain and snow with the end of the hour they add up, so that hour is the 15:00 record.
+- **One spacing for all three routes.** The default spacing comes from the main route's length and is used for every route, so they are compared on the same terms.
 - **ETAs come from the routing engine's own segment times.** Driver hours of service rules (11 hours driving, then a 10 hour break) are not modeled. That would be a good next step.
 - **Departure window.** Departures from now up to 7 days ahead. This keeps every checkpoint and the 48 hour slider inside the forecast range. Past departures are blocked because forecasts don't cover the past.
 - **Time zones.** Everything is UTC internally. Times are shown in the browser's local time with the zone label.
@@ -116,7 +117,8 @@ Before writing any code I went through the brief question by question and wrote 
 ### Routing
 
 - **Truck routing.** Valhalla's truck profile needs the gross vehicle weight, but the user enters the payload. I send an assumed empty truck weight (about 35,000 lb for a tractor and trailer) plus the load. The risk rules still use only the payload. If the total goes over 80,000 lb (the US federal limit) the app shows a soft warning.
-- **Always 3 routes.** If Valhalla returns fewer than 3, OSRM fills the gap (marked as a car profile route). If there are still fewer than 3, the app forces a different route through a point off to one side.
+- **Always 3 routes.** Valhalla often returns fewer than 3 (1 for Dallas to Oklahoma City, 2 for Chicago to Denver). OSRM fills the gap first (marked as a car route). If there are still fewer than 3, Valhalla is asked for a truck route through a point beside the middle of the main route, on the left and then the right. Routes sharing more than 85% of their road with one already picked are skipped, and so are detours longer than 1.5x the main route.
+- **ETA inside a maneuver.** The routing engines give a length and time per maneuver (one stretch of road). Within a maneuver the time is spread by distance, so speed is assumed constant on that stretch.
 
 ### Heatmap
 
@@ -129,6 +131,24 @@ Before writing any code I went through the brief question by question and wrote 
 
 - **Free Render instance.** It sleeps after 15 minutes without traffic and takes about a minute to wake. A scheduled ping keeps it awake most of the time, and the frontend shows a "waking up the server" screen explaining the wait when it is asleep.
 
+## API
+
+`GET /api/health` returns `{"status": "ok"}`. The frontend uses it to tell when the free server has woken up.
+
+`POST /api/plan`
+
+```json
+{
+  "origin": {"lat": 32.7767, "lon": -96.797},
+  "destination": {"lat": 39.7392, "lon": -104.9903},
+  "depart_at": "2026-10-11T14:00:00-05:00",
+  "load_lb": 42000,
+  "interval_mi": 25
+}
+```
+
+`interval_mi` is optional (10, 25 or 50). The response has the recommended route, and for each route: its rank, the rule it lost on, distance, duration, miles at each risk level, average risk, the line split into colored pieces by risk, and every checkpoint with its ETA, weather, level and reason. Invalid input returns 400 with a message per field. If a routing or weather service fails, it returns 502.
+
 ## Running locally
 
 Backend (needs [uv](https://docs.astral.sh/uv/)):
@@ -137,6 +157,9 @@ Backend (needs [uv](https://docs.astral.sh/uv/)):
 cd backend
 uv sync
 uv run pytest
+uv run python manage.py runserver
 ```
 
-The frontend and full setup steps will be added as those parts are built.
+No API keys are needed. Tests run offline against real responses saved in `backend/planner/tests/fixtures`.
+
+The frontend steps will be added when it is built.
