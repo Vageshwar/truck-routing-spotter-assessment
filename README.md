@@ -11,7 +11,7 @@ Work in progress. I'm building it in this order:
 - [x] Risk rules, load rules and route ranking, with tests
 - [x] Routing (3 options), checkpoints along each route and ETAs
 - [x] Weather at each checkpoint and the `/api/plan` endpoint
-- [ ] Frontend: form, route cards, map with routes and checkpoints
+- [x] Frontend: form, route cards, map with routes and checkpoints
 - [ ] Weather heatmap with the 0 to 48 hour slider
 - [ ] Deploy (Vercel + Render) and the Loom walkthrough
 
@@ -129,11 +129,14 @@ Before writing any code I went through the brief question by question and wrote 
 
 ### Hosting
 
+- **Place search is US only.** The routing and the risk rules are in US units, so the search boxes only suggest places in the lower 48 states.
 - **Free Render instance.** It sleeps after 15 minutes without traffic and takes about a minute to wake. A scheduled ping keeps it awake most of the time, and the frontend shows a "waking up the server" screen explaining the wait when it is asleep.
 
 ## API
 
 `GET /api/health` returns `{"status": "ok"}`. The frontend uses it to tell when the free server has woken up.
+
+`GET /api/geocode?q=denver` returns up to 5 US places (`label`, `lat`, `lon`) for the search boxes.
 
 `POST /api/plan`
 
@@ -162,4 +165,13 @@ uv run python manage.py runserver
 
 No API keys are needed. Tests run offline against real responses saved in `backend/planner/tests/fixtures`.
 
-The frontend steps will be added when it is built.
+Frontend (needs Node 20+), in a second terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env   # points the app at http://localhost:8000
+npm run dev
+```
+
+Then open http://localhost:5173.

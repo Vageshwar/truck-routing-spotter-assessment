@@ -1,0 +1,25 @@
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+.maplibregl-popup-content {
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.18);
+}
