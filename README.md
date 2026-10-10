@@ -4,16 +4,20 @@ A React + Django app that helps a truck driver pick the safest route between two
 
 This is my submission for the Spotter Full Stack Developer assessment.
 
-## Status
+**Live app:** https://truck-routing-spotter-assessment.vercel.app
+**API:** https://truck-routing-api-cpdh.onrender.com/api/health
 
-Work in progress. I'm building it in this order:
+The API runs on Render's free tier. If nobody has used it for a while it may need about a minute to wake up; the app shows a waiting screen while that happens.
+
+## Status
 
 - [x] Risk rules, load rules and route ranking, with tests
 - [x] Routing (3 options), checkpoints along each route and ETAs
 - [x] Weather at each checkpoint and the `/api/plan` endpoint
 - [x] Frontend: form, route cards, map with routes and checkpoints
 - [x] Weather heatmap with the 0 to 48 hour slider
-- [ ] Deploy (Vercel + Render) and the Loom walkthrough
+- [x] Deploy (Vercel + Render)
+- [ ] Loom walkthrough
 
 ## Problem statement
 
@@ -178,3 +182,18 @@ npm run dev
 ```
 
 Then open http://localhost:5173.
+
+## Deployment
+
+**Backend on Render** (free web service, Oregon, root directory `backend`, redeploys only when `backend/` changes):
+
+- Build: `pip install uv && uv sync --frozen --no-dev`
+- Start: `.venv/bin/gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120`
+- Health check: `/api/health`
+- Environment: `DJANGO_DEBUG=0`, `DJANGO_SECRET_KEY`, `CORS_ALLOWED_ORIGINS` (the Vercel URL), `PYTHON_VERSION=3.13.5`
+
+One worker with threads, so every request shares the same in-memory cache (the heatmap reuses the routes the plan just fetched).
+
+**Frontend on Vercel**, deployed from `frontend/` with `VITE_API_URL` set to the Render URL.
+
+**Keep-alive.** `.github/workflows/keep-alive.yml` pings `/api/health` every 10 minutes (repository variable `BACKEND_URL`) so the free instance stays awake.
