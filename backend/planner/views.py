@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from . import geocode
 from .plan import plan_trip
 from .serializers import PlanRequestSerializer
 from .valhalla import RoutingError
@@ -31,3 +32,14 @@ def plan(request):
         # an outside service failed, not the client's request
         return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
     return Response(result)
+
+
+@api_view(["GET"])
+def places(request):
+    query = request.query_params.get("q", "")
+    if len(query.strip()) < 3:
+        return Response([])
+    try:
+        return Response(geocode.search(query))
+    except geocode.GeocodeError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
