@@ -96,10 +96,10 @@ def place_checkpoints(route: Route, interval_mi: float) -> list[Checkpoint]:
     if miles[-1] < route.distance_mi:
         miles.append(route.distance_mi)
 
-    return [_point_at(route, m) for m in miles]
+    return [point_at(route, m) for m in miles]
 
 
-def _point_at(route: Route, mile: float) -> Checkpoint:
+def point_at(route: Route, mile: float) -> Checkpoint:
     # Index of the last point at or before this mile, kept inside the line so
     # there is always a next point to interpolate towards.
     i = min(bisect_right(route.cum_mi, mile) - 1, len(route.points) - 2)

@@ -9,12 +9,14 @@ import os
 
 import httpx
 
+from .cache import cached
 from .geo import LatLon, decode_polyline
 from .routes import Route, Step, accumulate_steps
 
 VALHALLA_URL = os.environ.get("VALHALLA_URL", "https://valhalla1.openstreetmap.de")
 USER_AGENT = "truck-routing-spotter-assessment (+https://github.com/Vageshwar/truck-routing-spotter-assessment)"
 TIMEOUT_S = 30
+CACHE_TTL_S = 60 * 60
 
 # Valhalla wants the gross vehicle weight (it checks bridge and road limits),
 # but the user enters the payload. We add a typical empty tractor + 53 ft
@@ -90,6 +92,10 @@ def fetch_routes(
     via: LatLon | None = None,
 ) -> list[Route]:
     body = build_request(origin, destination, load_lb, alternates=alternates, via=via)
+    return cached("valhalla", body, CACHE_TTL_S, lambda: _post(body))
+
+
+def _post(body: dict) -> list[Route]:
     try:
         response = httpx.post(
             f"{VALHALLA_URL}/route",
