@@ -131,3 +131,34 @@ def assess(wind_mph: float, rain_in_hr: float, snow_in_hr: float, load_lb: float
         reason = f"{' + '.join(parts)} -> {level.label}"
 
     return Assessment(level=level, wind=wind, rain=rain, snow=snow, reason=reason)
+
+
+def _scale_position(value: float, bands: tuple[Band, ...]) -> float:
+    """Where a value sits on the 0-4 scale, e.g. 30 mph wind is 1.5
+    (Moderate starts at 25, High at 35, so 30 is halfway)."""
+    edges = [0.0, *(band.threshold for band in bands)]
+    for i in range(len(edges) - 1):
+        if value < edges[i + 1]:
+            return i + (value - edges[i]) / (edges[i + 1] - edges[i])
+    return float(RiskLevel.NO_TRAVEL)
+
+
+def risk_score(wind_mph: float, rain_in_hr: float, snow_in_hr: float, load_lb: float) -> float:
+    """A smooth 0-4 version of the risk level, used to shade the heatmap.
+
+    The whole-number part is always the official level from assess(), so the
+    heatmap never disagrees with the checkpoints. The fraction shows how close
+    the worst condition is to the next level, so a calm day still shows where
+    the wind is picking up.
+    """
+    level = assess(wind_mph, rain_in_hr, snow_in_hr, load_lb).level
+    if level == RiskLevel.NO_TRAVEL:
+        return float(level)
+    position = max(
+        _scale_position(wind_mph, WIND_MPH_BANDS),
+        _scale_position(rain_in_hr, RAIN_IN_HR_BANDS),
+        _scale_position(snow_in_hr, SNOW_IN_HR_BANDS),
+    )
+    # The load rules can raise the level above what the raw numbers say, and
+    # exactly 1.00 in/hr rain is still Severe, so keep the score inside the level.
+    return max(float(level), min(position, level + 0.99))
