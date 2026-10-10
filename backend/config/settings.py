@@ -22,11 +22,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-not-secret")
+if not os.environ.get("DJANGO_DEBUG", "1") == "1" and SECRET_KEY == "dev-only-not-secret":
+    raise RuntimeError("Set DJANGO_SECRET_KEY when DJANGO_DEBUG is off")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# Render sets this to the service's public hostname
+if render_host := os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS.append(render_host)
 
 
 # Application definition
@@ -43,6 +48,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -140,3 +146,16 @@ CACHES = {
         "OPTIONS": {"MAX_ENTRIES": 200_000},
     }
 }
+
+if not DEBUG:
+    # Render terminates HTTPS and already redirects plain HTTP to it.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 60 * 60 * 24
+
+SILENCED_SYSTEM_CHECKS = [
+    # No cookies, sessions or logins, so there is nothing for CSRF to protect.
+    "security.W003",
+    # Render's proxy does the HTTP to HTTPS redirect; redirecting here too
+    # would also redirect Render's internal health checks.
+    "security.W008",
+]
