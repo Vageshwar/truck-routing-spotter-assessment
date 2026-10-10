@@ -1,11 +1,15 @@
-import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
-import { fetchPlan, type PlanRequest } from './api'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
+import { fetchHeatmap, fetchPlan, type PlanRequest } from './api'
+import { HourSlider } from './components/HourSlider'
 import { Legend } from './components/Legend'
 import { RouteCards } from './components/RouteCards'
 import { TripForm } from './components/TripForm'
 import { TripMap } from './components/TripMap'
 import { WakeGate } from './components/WakeGate'
+import { truckPosition } from './truck'
+
+const MAX_HOUR = 48
 
 export default function App() {
   return (
@@ -17,11 +21,37 @@ export default function App() {
 
 function Planner() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [hour, setHour] = useState(0)
+  const [showHeatmap, setShowHeatmap] = useState(true)
   const planMutation = useMutation({
     mutationFn: (request: PlanRequest) => fetchPlan(request),
-    onSuccess: (plan) => setSelectedId(plan.recommended_route_id),
+    onSuccess: (plan) => {
+      setSelectedId(plan.recommended_route_id)
+      setHour(0)
+    },
   })
   const plan = planMutation.data ?? null
+  const request = planMutation.variables
+
+  // Load the heatmap after the plan, so the backend can reuse the routes it
+  // just fetched instead of asking the routing server twice.
+  const heatmapQuery = useQuery({
+    queryKey: ['heatmap', request],
+    queryFn: ({ signal }) => fetchHeatmap(request!, signal),
+    enabled: planMutation.isSuccess && !!request,
+    staleTime: 10 * 60_000,
+  })
+  const heatmap = planMutation.isSuccess ? (heatmapQuery.data ?? null) : null
+
+  const selected = plan?.routes.find((r) => r.id === selectedId) ?? null
+  const truck = plan && selected ? truckPosition(selected, new Date(new Date(plan.depart_at).getTime() + hour * 3600_000)) : null
+  const truckStatus = truck
+    ? truck.arrived
+      ? `Route ${selected!.id} has arrived`
+      : `Route ${selected!.id} truck near mile ${Math.round(truck.mile)}`
+    : null
+
+  const onHourChange = useCallback((h: number) => setHour(h), [])
 
   return (
     <div className="flex h-full flex-col md:flex-row">
@@ -48,10 +78,32 @@ function Planner() {
       </aside>
 
       <main className="relative order-1 h-[45vh] md:order-2 md:h-full md:flex-1">
-        <TripMap plan={plan} selectedId={selectedId} onSelect={setSelectedId} />
-        <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-4rem)] md:top-auto md:bottom-3">
+        <TripMap
+          plan={plan}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          heatmap={heatmap}
+          hour={hour}
+          showHeatmap={showHeatmap}
+          truck={truck}
+        />
+        <div className="pointer-events-none absolute top-3 left-3 max-w-[calc(100%-4rem)]">
           <Legend />
         </div>
+        {plan && (
+          <div className="absolute right-3 bottom-8 left-3 md:right-auto md:left-1/2 md:w-[560px] md:-translate-x-1/2">
+            <HourSlider
+              hour={hour}
+              maxHour={MAX_HOUR}
+              times={heatmap?.times ?? null}
+              status={truckStatus}
+              showHeatmap={showHeatmap}
+              onHourChange={onHourChange}
+              onShowHeatmapChange={setShowHeatmap}
+              error={heatmapQuery.isError ? heatmapQuery.error.message : null}
+            />
+          </div>
+        )}
         {planMutation.isPending && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/50">
             <div className="rounded-lg bg-white px-4 py-3 text-sm shadow-md">

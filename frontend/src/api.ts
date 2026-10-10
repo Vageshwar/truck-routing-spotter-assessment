@@ -97,3 +97,20 @@ export function fetchPlan(body: PlanRequest) {
     body: JSON.stringify(body),
   })
 }
+
+export type Heatmap = {
+  step_deg: number
+  times: string[] // departure + 0 h ... + 48 h
+  points: [number, number][] // [lon, lat]
+  scores: number[][] // per point, per hour: risk score x 10 (0-40)
+}
+
+// Same body as /api/plan; the backend reuses the cached routes.
+export function fetchHeatmap(body: PlanRequest, signal?: AbortSignal) {
+  return request<Heatmap>('/api/heatmap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+}

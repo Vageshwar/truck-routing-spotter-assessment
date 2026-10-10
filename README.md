@@ -12,7 +12,7 @@ Work in progress. I'm building it in this order:
 - [x] Routing (3 options), checkpoints along each route and ETAs
 - [x] Weather at each checkpoint and the `/api/plan` endpoint
 - [x] Frontend: form, route cards, map with routes and checkpoints
-- [ ] Weather heatmap with the 0 to 48 hour slider
+- [x] Weather heatmap with the 0 to 48 hour slider
 - [ ] Deploy (Vercel + Render) and the Loom walkthrough
 
 ## Problem statement
@@ -125,7 +125,8 @@ Before writing any code I went through the brief question by question and wrote 
 - **The slider is relative to departure**, from departure time to 48 hours after.
 - **Area.** Points within about 20 miles of any of the three routes, on a fixed 0.25° grid, capped at about 400 points. A full bounding box would be thousands of points on a long trip, which is too many for Open-Meteo's free tier. The fixed grid also lets the cache reuse points between searches.
 - **One request, then no network.** The backend fetches all 49 hours in one batched call and sends a compact array. Moving the slider only changes which hour the map draws, so it stays smooth.
-- **The heatmap shows risk level** for the user's load, using the same rules as the checkpoints.
+- **The heatmap shows a smooth risk score** from 0 to 4 for the user's load. Its whole number part is always the official level (same rules as the checkpoints), and the fraction shows how close the worst condition is to the next level. For example 30 mph wind is 1.5: Moderate, halfway to High. With only the 5 levels a calm day would be one flat color, and the score shows where conditions are building.
+- **The truck moves with the slider.** A marker shows where the truck on the selected route would be at that hour, so you can see whether it reaches a storm before or after it passes.
 
 ### Hosting
 
@@ -137,6 +138,8 @@ Before writing any code I went through the brief question by question and wrote 
 `GET /api/health` returns `{"status": "ok"}`. The frontend uses it to tell when the free server has woken up.
 
 `GET /api/geocode?q=denver` returns up to 5 US places (`label`, `lat`, `lon`) for the search boxes.
+
+`POST /api/heatmap` takes the same body as `/api/plan` and returns the grid points, the 49 times (departure to +48 h) and a score per point per hour (risk score x 10, so 0 to 40).
 
 `POST /api/plan`
 
