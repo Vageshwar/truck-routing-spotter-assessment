@@ -194,6 +194,6 @@ Then open http://localhost:5173.
 
 One worker with threads, so every request shares the same in-memory cache (the heatmap reuses the routes the plan just fetched).
 
-**Frontend on Vercel**, deployed from `frontend/` with `VITE_API_URL` set to the Render URL.
+**Frontend on Vercel**, connected to this GitHub repo with root directory `frontend`, so every push to `main` that changes `frontend/` deploys to production. `VITE_API_URL` is set to the Render URL.
 
 **Keep-alive.** `.github/workflows/keep-alive.yml` pings `/api/health` every 10 minutes (repository variable `BACKEND_URL`) so the free instance stays awake.
