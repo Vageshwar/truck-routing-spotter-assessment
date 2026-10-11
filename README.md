@@ -4,9 +4,9 @@ A React + Django app that helps a truck driver pick the safest route between two
 
 This is my submission for the Spotter Full Stack Developer assessment.
 
-**Live app:** https://truck-routing-spotter-assessment.vercel.app
-**API:** https://truck-routing-api-cpdh.onrender.com/api/health
-**Walkthrough video:** https://www.loom.com/share/4f715316a7b14935abf52fc33fb3817c
+- **Live app:** https://truck-routing-spotter-assessment.vercel.app
+- **Walkthrough video:** https://www.loom.com/share/4f715316a7b14935abf52fc33fb3817c
+- **API:** https://truck-routing-api-cpdh.onrender.com/api/health
 
 The API runs on Render's free tier. If nobody has used it for a while it may need about a minute to wake up; the app shows a waiting screen while that happens.
 
