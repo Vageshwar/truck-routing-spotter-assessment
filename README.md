@@ -6,6 +6,7 @@ This is my submission for the Spotter Full Stack Developer assessment.
 
 **Live app:** https://truck-routing-spotter-assessment.vercel.app
 **API:** https://truck-routing-api-cpdh.onrender.com/api/health
+**Walkthrough video:** https://www.loom.com/share/4f715316a7b14935abf52fc33fb3817c
 
 The API runs on Render's free tier. If nobody has used it for a while it may need about a minute to wake up; the app shows a waiting screen while that happens.
 
@@ -17,7 +18,7 @@ The API runs on Render's free tier. If nobody has used it for a while it may nee
 - [x] Frontend: form, route cards, map with routes and checkpoints
 - [x] Weather heatmap with the 0 to 48 hour slider
 - [x] Deploy (Vercel + Render)
-- [ ] Loom walkthrough
+- [x] Loom walkthrough
 
 ## Problem statement
 
